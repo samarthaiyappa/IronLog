@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IronLog</title>
+    <title>HeavyLifter Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -99,7 +99,7 @@
       <div v-if="currentTab === 'history'" class="p-4 space-y-4">
           <div v-if="history.length === 0" class="text-center text-gray-500 mt-16 px-4">
               <i class="fas fa-clock text-4xl mb-3 opacity-50"></i>
-              <p>No sessions logged. Import your workout history in a CSV file to bring your past lifts across.</p>
+              <p>No sessions logged. Import your Hevy CSV in Settings to bring your past lifts across.</p>
           </div>
           <div v-for="workout in sortedHistory" :key="workout.id" class="bg-card rounded-xl p-5 shadow-lg border border-gray-800">
               <div class="flex justify-between items-start mb-4">
@@ -127,7 +127,7 @@
       <!-- SETTINGS -->
       <div v-if="currentTab === 'settings'" class="p-4 space-y-6">
           <div class="bg-card rounded-xl p-5 border border-gray-800 shadow-lg">
-              <h2 class="font-bold text-lg mb-2 text-white"><i class="fas fa-file-csv mr-2 text-blue-500"></i> Import Workout History </h2>
+              <h2 class="font-bold text-lg mb-2 text-white"><i class="fas fa-file-csv mr-2 text-blue-500"></i> Import Hevy CSV</h2>
               <p class="text-sm text-gray-400 mb-5">In Hevy, go to Settings &gt; Export Data and export <strong>workout_data.csv</strong>. Weights logged in lb are converted to kg.</p>
               <label class="block w-full text-center bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg cursor-pointer border border-gray-700 transition">
                   <span>Select CSV file</span>
@@ -1209,7 +1209,7 @@ createApp({
             }, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `ironlog-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.download = `heavylifter-backup-${new Date().toISOString().slice(0, 10)}.json`;
             a.click();
             URL.revokeObjectURL(a.href);
         },
