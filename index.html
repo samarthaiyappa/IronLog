@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HeavyLifter Pro</title>
+    <title>IronLog</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -19,6 +19,13 @@
         input[type="number"] { -moz-appearance: textfield; }
         .chip { border: 1px solid #2f2f33; }
         .chip.on { background-color: #3b82f6; border-color: #3b82f6; color: #fff; }
+        
+        /* IronLog Logo styling */
+        .logo-icon {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
     </style>
 </head>
 <body>
@@ -27,9 +34,12 @@
   <!-- MAIN CONTENT -->
   <div class="flex-1 overflow-y-auto pb-20">
       <header class="bg-card px-4 py-4 sticky top-0 z-10 border-b border-gray-800 flex justify-between items-center shadow-md">
-          <h1 class="text-2xl font-bold tracking-tight">{{ tabTitles[currentTab] }}</h1>
+          <div class="flex items-center gap-2">
+              <i v-if="currentTab === 'routines'" class="fas fa-weight-hanging text-xl logo-icon"></i>
+              <h1 class="text-2xl font-bold tracking-tight">{{ tabTitles[currentTab] }}</h1>
+          </div>
           <button v-if="currentTab === 'routines'" @click="createNewRoutine" class="text-blue-500 font-semibold hover:text-blue-400 transition">
-              <i class="fas fa-plus mr-1"></i> New routine
+              <i class="fas fa-plus mr-1"></i> New
           </button>
           <button v-if="currentTab === 'exercises'" @click="openLibrary('browse')" class="text-blue-500 font-semibold hover:text-blue-400 transition">
               <i class="fas fa-search mr-1"></i> Browse
@@ -38,7 +48,7 @@
 
       <!-- ROUTINES -->
       <div v-if="currentTab === 'routines'" class="p-4 space-y-4">
-          <button @click="startWorkout(null)" class="w-full bg-card border border-gray-800 text-gray-200 font-semibold py-3 rounded-xl hover:bg-gray-800 transition">
+          <button @click="startWorkout(null)" class="w-full bg-card border border-gray-800 text-gray-200 font-semibold py-3 rounded-xl hover:bg-gray-800 transition shadow-sm">
               <i class="fas fa-bolt mr-2 text-blue-500"></i> Start an empty workout
           </button>
 
@@ -99,7 +109,7 @@
       <div v-if="currentTab === 'history'" class="p-4 space-y-4">
           <div v-if="history.length === 0" class="text-center text-gray-500 mt-16 px-4">
               <i class="fas fa-clock text-4xl mb-3 opacity-50"></i>
-              <p>No sessions logged. Import your Hevy CSV in Settings to bring your past lifts across.</p>
+              <p>No sessions logged. Import your workout history CSV in Settings to bring your past lifts across.</p>
           </div>
           <div v-for="workout in sortedHistory" :key="workout.id" class="bg-card rounded-xl p-5 shadow-lg border border-gray-800">
               <div class="flex justify-between items-start mb-4">
@@ -127,8 +137,8 @@
       <!-- SETTINGS -->
       <div v-if="currentTab === 'settings'" class="p-4 space-y-6">
           <div class="bg-card rounded-xl p-5 border border-gray-800 shadow-lg">
-              <h2 class="font-bold text-lg mb-2 text-white"><i class="fas fa-file-csv mr-2 text-blue-500"></i> Import Hevy CSV</h2>
-              <p class="text-sm text-gray-400 mb-5">In Hevy, go to Settings &gt; Export Data and export <strong>workout_data.csv</strong>. Weights logged in lb are converted to kg.</p>
+              <h2 class="font-bold text-lg mb-2 text-white"><i class="fas fa-file-import mr-2 text-blue-500"></i> Import Workout CSV</h2>
+              <p class="text-sm text-gray-400 mb-5">Migrating from Hevy, Strong, or FitNotes? Upload your CSV export. We'll intelligently map your sets, reps, and exercises to IronLog. (Weights logged in lbs are converted to kg).</p>
               <label class="block w-full text-center bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg cursor-pointer border border-gray-700 transition">
                   <span>Select CSV file</span>
                   <input type="file" @change="handleFileUpload" accept=".csv" class="hidden"/>
@@ -157,7 +167,7 @@
 
           <div class="bg-card rounded-xl p-5 border border-gray-800 shadow-lg">
               <h2 class="font-bold text-lg mb-2 text-white"><i class="fas fa-box-archive mr-2 text-blue-500"></i> Backup</h2>
-              <p class="text-sm text-gray-400 mb-4">Everything lives in this browser only. Export a JSON backup before clearing site data or switching phones.</p>
+              <p class="text-sm text-gray-400 mb-4">Everything lives in this browser only. Export an IronLog JSON backup before clearing site data or switching phones.</p>
               <div class="flex gap-3">
                   <button @click="exportBackup" class="flex-1 bg-gray-800 py-3 rounded-lg font-semibold border border-gray-700">Export JSON</button>
                   <label class="flex-1 text-center bg-gray-800 py-3 rounded-lg font-semibold border border-gray-700 cursor-pointer">
@@ -597,13 +607,13 @@ const FIELDS = {
     cardio:   [{ key: 'distance', label: 'KM', step: '0.1' }, { key: 'minutes', label: 'Min', step: '1' }]
 };
 
-const KEYS = { routines: 'hl_routines', history: 'hl_history', custom: 'hl_custom_exercises', settings: 'hl_settings' };
+const KEYS = { routines: 'il_routines', history: 'il_history', custom: 'il_custom_exercises', settings: 'il_settings' };
 
 createApp({
     data() {
         return {
             currentTab: 'routines',
-            tabTitles: { routines: 'My routines', exercises: 'Exercises', history: 'Workout history', settings: 'Settings' },
+            tabTitles: { routines: 'IronLog', exercises: 'Exercises', history: 'Workout history', settings: 'Settings' },
             tabs: [
                 { id: 'routines', label: 'Routines', icon: 'fa-clipboard-list' },
                 { id: 'exercises', label: 'Exercises', icon: 'fa-dumbbell' },
@@ -716,13 +726,15 @@ createApp({
         loadData() {
             const read = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 
-            this.routines = read(KEYS.routines) || read('hevy_replica_routines') || [];
-            this.history  = read(KEYS.history)  || read('hevy_replica_history')  || [];
-            this.customExercises = read(KEYS.custom) || [];
-            const s = read(KEYS.settings);
+            // Support migrating from old HeavyLifter or Hevy Replica data instances
+            this.routines = read(KEYS.routines) || read('hl_routines') || read('hevy_replica_routines') || [];
+            this.history  = read(KEYS.history)  || read('hl_history')  || read('hevy_replica_history')  || [];
+            this.customExercises = read(KEYS.custom) || read('hl_custom_exercises') || [];
+            
+            const s = read(KEYS.settings) || read('hl_settings');
             if (s) this.settings = Object.assign(this.settings, s);
 
-            // migrate the old flat string list of exercises
+            // migrate old flat string list of exercises from ancient clones
             const legacy = read('hevy_replica_exerciseDB');
             if (Array.isArray(legacy)) {
                 legacy.forEach(name => {
@@ -737,7 +749,7 @@ createApp({
                     this.customExercises.push({ name: ex.exerciseName, category: 'Custom', muscle: 'Custom', tracking: this.guessTracking(ex) });
                 }
             }));
-            this.saveData();
+            this.saveData(); // Secure in new keys
         },
 
         /* ---------- library helpers ---------- */
@@ -1094,12 +1106,14 @@ createApp({
             this.saveData();
         },
 
-        /* ---------- Hevy CSV import ---------- */
-        parseHevyDate(value) {
+        /* ---------- Universal CSV import ---------- */
+        parseDateString(value) {
             if (!value) return null;
             const s = String(value).replace(/"/g, '').trim();
             let d = new Date(s);
             if (!isNaN(d.getTime())) return d;
+            
+            // Backup parser for certain specific app formats (e.g. Hevy's 01 Jan 2024, 18:30)
             const m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4}),?\s*(\d{1,2}):(\d{2})/);
             if (m) {
                 const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
@@ -1109,11 +1123,13 @@ createApp({
             return null;
         },
 
-        weightFromRow(row) {
-            if (row.weight_kg !== undefined && row.weight_kg !== '') return this.num(row.weight_kg);
-            if (row.weight_lbs !== undefined && row.weight_lbs !== '') return Math.round(parseFloat(row.weight_lbs) * 0.45359237 * 10) / 10;
-            if (row.weight !== undefined && row.weight !== '') return this.num(row.weight);
-            return '';
+        findColumn(row, possibleNames) {
+            const keys = Object.keys(row);
+            for (const p of possibleNames) {
+                const found = keys.find(k => k.toLowerCase().trim() === p);
+                if (found && row[found] !== undefined && row[found] !== '') return row[found];
+            }
+            return null;
         },
 
         handleFileUpload(event) {
@@ -1125,44 +1141,81 @@ createApp({
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
-                transformHeader: h => h.trim().toLowerCase(),
                 complete: (results) => {
                     try {
                         const data = results.data;
-                        if (!data.length || !Object.prototype.hasOwnProperty.call(data[0], 'exercise_title')) {
-                            throw new Error("That file doesn't look like Hevy's workout_data.csv — it needs an exercise_title column.");
-                        }
+                        if (!data.length) throw new Error("That CSV file appears to be empty.");
 
                         const groups = {};
-                        data.forEach(row => {
-                            const date = this.parseHevyDate(row.start_time);
-                            if (!date) return;
-                            const key = (row.title || 'Workout') + '_' + date.getTime();
+                        let rowsProcessed = 0;
+
+                        data.forEach((row, rowIndex) => {
+                            // Find exercise name
+                            const exName = this.findColumn(row, ['exercise_title', 'exercise name', 'exercise', 'name', 'exercise_name']);
+                            if (!exName) return; // Skip rows that don't look like exercise sets
+                            
+                            rowsProcessed++;
+
+                            // Find Date 
+                            const rawDate = this.findColumn(row, ['start_time', 'date', 'workout date', 'datetime', 'created_at']);
+                            // Default to today if tracking app didn't export a date for the row
+                            const date = this.parseDateString(rawDate) || new Date(new Date().setHours(0,0,0,0));
+
+                            // Find Workout Name
+                            const workoutName = this.findColumn(row, ['title', 'workout name', 'workout_name', 'routine', 'workout']) || 'Imported Workout';
+
+                            const key = workoutName + '_' + date.getTime();
 
                             if (!groups[key]) {
                                 groups[key] = {
-                                    id: key,
-                                    name: row.title || 'Imported workout',
+                                    id: 'w_' + Date.now() + '_' + rowIndex,
+                                    name: workoutName,
                                     startTime: date.toISOString(),
-                                    endTime: (this.parseHevyDate(row.end_time) || date).toISOString(),
+                                    endTime: date.toISOString(), // simplified for fallback
                                     exercisesMap: {}
                                 };
                             }
 
-                            const exName = (row.exercise_title || 'Unknown exercise').trim();
-                            if (!groups[key].exercisesMap[exName]) groups[key].exercisesMap[exName] = { exerciseName: exName, sets: [] };
+                            const cleanExName = String(exName).trim();
+                            if (!groups[key].exercisesMap[cleanExName]) {
+                                groups[key].exercisesMap[cleanExName] = { exerciseName: cleanExName, sets: [] };
+                            }
 
-                            const set = { completed: true, type: (row.set_type || 'normal').toLowerCase() };
-                            const w = this.weightFromRow(row);
-                            if (w !== '') set.weight = w;
-                            if (row.reps !== undefined && row.reps !== '') set.reps = parseInt(row.reps) || 0;
-                            if (row.distance_km !== undefined && row.distance_km !== '') set.distance = this.num(row.distance_km);
-                            if (row.duration_seconds !== undefined && row.duration_seconds !== '') set.seconds = this.num(row.duration_seconds);
-                            if (row.rpe !== undefined && row.rpe !== '') set.rpe = this.num(row.rpe);
-                            set._i = row.set_index !== undefined && row.set_index !== '' ? parseInt(row.set_index) : groups[key].exercisesMap[exName].sets.length;
+                            // Build the set
+                            const setType = this.findColumn(row, ['set_type', 'type']) || 'normal';
+                            const set = { completed: true, type: String(setType).toLowerCase() };
 
-                            groups[key].exercisesMap[exName].sets.push(set);
+                            // Determine Weights
+                            const wKg = this.findColumn(row, ['weight_kg', 'weight (kg)', 'weight']);
+                            const wLbs = this.findColumn(row, ['weight_lbs', 'weight (lbs)']);
+                            
+                            let finalWeight = '';
+                            if (wKg !== null) finalWeight = this.num(wKg);
+                            else if (wLbs !== null) finalWeight = Math.round(parseFloat(wLbs) * 0.45359237 * 10) / 10;
+                            if (finalWeight !== '') set.weight = finalWeight;
+
+                            // Reps, Distance, Duration, RPE, Set Order
+                            const reps = this.findColumn(row, ['reps', 'repetitions', 'reps_count']);
+                            if (reps !== null) set.reps = parseInt(reps) || 0;
+
+                            const dist = this.findColumn(row, ['distance_km', 'distance (km)', 'distance']);
+                            if (dist !== null) set.distance = this.num(dist);
+
+                            const dur = this.findColumn(row, ['duration_seconds', 'duration (s)', 'duration', 'time']);
+                            if (dur !== null) set.seconds = this.num(dur);
+
+                            const rpe = this.findColumn(row, ['rpe']);
+                            if (rpe !== null) set.rpe = this.num(rpe);
+
+                            const setIndex = this.findColumn(row, ['set_index', 'set', 'set number', 'set_order']);
+                            set._i = setIndex !== null ? parseInt(setIndex) : groups[key].exercisesMap[cleanExName].sets.length;
+
+                            groups[key].exercisesMap[cleanExName].sets.push(set);
                         });
+
+                        if (rowsProcessed === 0) {
+                            throw new Error("Could not find any workout sets. Make sure the CSV has an 'Exercise' or 'Exercise Name' column.");
+                        }
 
                         const imported = Object.values(groups).map(w => ({
                             id: w.id, name: w.name, startTime: w.startTime, endTime: w.endTime,
@@ -1173,11 +1226,13 @@ createApp({
                             })
                         }));
 
-                        const existing = new Set(this.history.map(h => h.id));
+                        const existing = new Set(this.history.map(h => h.name + '_' + new Date(h.startTime).getTime()));
                         let added = 0, newExercises = 0;
 
                         imported.forEach(w => {
-                            if (existing.has(w.id)) return;
+                            const compareKey = w.name + '_' + new Date(w.startTime).getTime();
+                            if (existing.has(compareKey)) return;
+                            
                             this.history.push(w);
                             added++;
                             w.exercises.forEach(ex => {
@@ -1191,7 +1246,7 @@ createApp({
                         });
 
                         this.saveData();
-                        this.importStatus = `Imported ${added} sessions and ${newExercises} new exercises. Your previous weights and reps now show up while you log.`;
+                        this.importStatus = `Successfully mapped and imported ${added} sessions and ${newExercises} new custom exercises into IronLog.`;
                     } catch (err) {
                         this.importError = true;
                         this.importStatus = err.message;
@@ -1209,7 +1264,7 @@ createApp({
             }, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `heavylifter-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.download = `ironlog-backup-${new Date().toISOString().slice(0, 10)}.json`;
             a.click();
             URL.revokeObjectURL(a.href);
         },
@@ -1226,7 +1281,7 @@ createApp({
                     if (d.customExercises) this.customExercises = d.customExercises;
                     if (d.settings) this.settings = Object.assign(this.settings, d.settings);
                     this.saveData();
-                    this.importStatus = 'Backup restored.';
+                    this.importStatus = 'IronLog backup restored successfully.';
                     this.importError = false;
                 } catch (err) {
                     this.importError = true;
@@ -1240,11 +1295,14 @@ createApp({
         clearAllData() {
             if (!confirm('Delete every routine, session and custom exercise on this device? This cannot be undone.')) return;
             Object.values(KEYS).forEach(k => localStorage.removeItem(k));
-            ['hevy_replica_routines', 'hevy_replica_history', 'hevy_replica_exerciseDB'].forEach(k => localStorage.removeItem(k));
+            
+            // clear legacy items just in case
+            ['hevy_replica_routines', 'hevy_replica_history', 'hevy_replica_exerciseDB', 'hl_routines', 'hl_history', 'hl_settings', 'hl_custom_exercises'].forEach(k => localStorage.removeItem(k));
+            
             this.routines = [];
             this.history = [];
             this.customExercises = [];
-            this.importStatus = 'All local data cleared.';
+            this.importStatus = 'All local IronLog data cleared.';
             this.importError = false;
         }
     }
