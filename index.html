@@ -19,13 +19,6 @@
         input[type="number"] { -moz-appearance: textfield; }
         .chip { border: 1px solid #2f2f33; }
         .chip.on { background-color: #3b82f6; border-color: #3b82f6; color: #fff; }
-        
-        /* IronLog Logo styling */
-        .logo-icon {
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
     </style>
 </head>
 <body>
@@ -33,11 +26,32 @@
 
   <!-- MAIN CONTENT -->
   <div class="flex-1 overflow-y-auto pb-20">
-      <header class="bg-card px-4 py-4 sticky top-0 z-10 border-b border-gray-800 flex justify-between items-center shadow-md">
-          <div class="flex items-center gap-2">
-              <i v-if="currentTab === 'routines'" class="fas fa-weight-hanging text-xl logo-icon"></i>
+      <header class="bg-card px-4 py-3 sticky top-0 z-10 border-b border-gray-800 flex justify-between items-center shadow-md">
+          
+          <!-- IRONLOG CUSTOM LOGO (Routines Tab) -->
+          <div v-if="currentTab === 'routines'" class="flex items-center gap-3">
+              <svg width="42" height="42" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="2" width="44" height="44" rx="13" stroke="#3b82f6" stroke-width="2.5"/>
+                  <rect x="7.5" y="26" width="6" height="15" rx="2" fill="#2e4c7d"/>
+                  <rect x="16" y="19" width="6" height="22" rx="2" fill="#3562be"/>
+                  <rect x="24.5" y="12" width="6" height="29" rx="2" fill="#3b82f6"/>
+                  <rect x="33" y="6" width="6" height="35" rx="2" fill="#60a5fa"/>
+              </svg>
+              <div class="flex flex-col justify-center">
+                  <div class="text-[22px] font-bold leading-none tracking-tight mb-1">
+                      <span class="text-white">Iron</span><span class="text-[#3b82f6]">Log</span>
+                  </div>
+                  <div class="text-[8px] text-gray-400 tracking-[0.22em] font-semibold uppercase leading-none">
+                      Track. Log. Overload.
+                  </div>
+              </div>
+          </div>
+          
+          <!-- Standard Title for other tabs -->
+          <div v-else class="flex items-center gap-2">
               <h1 class="text-2xl font-bold tracking-tight">{{ tabTitles[currentTab] }}</h1>
           </div>
+
           <button v-if="currentTab === 'routines'" @click="createNewRoutine" class="text-blue-500 font-semibold hover:text-blue-400 transition">
               <i class="fas fa-plus mr-1"></i> New
           </button>
