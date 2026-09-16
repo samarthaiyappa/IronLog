@@ -14,29 +14,34 @@
         .bg-card { background-color: #1c1c1e; }
         .nav-item.active { color: #3b82f6; }
         ::-webkit-scrollbar { width: 0px; background: transparent; }
-        
-        /* Remove arrows from number inputs for cleaner UI */
-        input[type="number"]::-webkit-inner-spin-button, 
-        input[type="number"]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; margin: 0; 
-        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
+        .chip { border: 1px solid #2f2f33; }
+        .chip.on { background-color: #3b82f6; border-color: #3b82f6; color: #fff; }
     </style>
 </head>
 <body>
 <div id="app" class="h-screen flex flex-col relative overflow-hidden">
 
-  <!-- MAIN CONTENT AREA (Routines, History, Settings) -->
+  <!-- MAIN CONTENT -->
   <div class="flex-1 overflow-y-auto pb-20">
       <header class="bg-card px-4 py-4 sticky top-0 z-10 border-b border-gray-800 flex justify-between items-center shadow-md">
           <h1 class="text-2xl font-bold tracking-tight">{{ tabTitles[currentTab] }}</h1>
           <button v-if="currentTab === 'routines'" @click="createNewRoutine" class="text-blue-500 font-semibold hover:text-blue-400 transition">
-              <i class="fas fa-plus mr-1"></i> New Routine
+              <i class="fas fa-plus mr-1"></i> New routine
+          </button>
+          <button v-if="currentTab === 'exercises'" @click="openLibrary('browse')" class="text-blue-500 font-semibold hover:text-blue-400 transition">
+              <i class="fas fa-search mr-1"></i> Browse
           </button>
       </header>
 
-      <!-- ROUTINES TAB -->
+      <!-- ROUTINES -->
       <div v-if="currentTab === 'routines'" class="p-4 space-y-4">
+          <button @click="startWorkout(null)" class="w-full bg-card border border-gray-800 text-gray-200 font-semibold py-3 rounded-xl hover:bg-gray-800 transition">
+              <i class="fas fa-bolt mr-2 text-blue-500"></i> Start an empty workout
+          </button>
+
           <div v-for="(routine, index) in routines" :key="index" class="bg-card rounded-xl p-5 shadow-lg border border-gray-800">
               <div class="flex justify-between items-start mb-2">
                   <h2 class="font-bold text-xl">{{ routine.name }}</h2>
@@ -46,67 +51,139 @@
                   </div>
               </div>
               <p class="text-sm text-gray-400 mb-5 leading-relaxed">{{ getRoutineExercisesText(routine) }}</p>
-              <button @click="startWorkout(routine)" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition">Start Workout</button>
+              <button @click="startWorkout(routine)" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition">Start workout</button>
           </div>
+
           <div v-if="routines.length === 0" class="text-center text-gray-500 mt-16 px-4">
               <i class="fas fa-folder-open text-4xl mb-3 opacity-50"></i>
-              <p>No routines yet. You are using the Pro version, so create as many as you want!</p>
+              <p>No routines yet. Create one, or start an empty workout and build it as you go.</p>
           </div>
       </div>
 
-      <!-- HISTORY TAB -->
+      <!-- EXERCISES TAB -->
+      <div v-if="currentTab === 'exercises'" class="p-4 space-y-3">
+          <div class="relative">
+              <i class="fas fa-search absolute left-3 top-3.5 text-gray-500"></i>
+              <input v-model="browseSearch" placeholder="Search exercises" class="w-full bg-gray-800 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none border border-gray-700"/>
+          </div>
+          <div class="flex gap-2 overflow-x-auto pb-1">
+              <button v-for="c in categories" :key="c" @click="browseCategory = c"
+                      class="chip px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap text-gray-300"
+                      :class="{ 'on': browseCategory === c }">{{ c }}</button>
+          </div>
+          <div class="flex gap-2 overflow-x-auto pb-2">
+              <button v-for="m in muscleFilters" :key="m" @click="browseMuscle = (browseMuscle === m ? 'All' : m)"
+                      class="chip px-3 py-1 rounded-full text-[11px] font-medium whitespace-nowrap text-gray-400"
+                      :class="{ 'on': browseMuscle === m }">{{ m }}</button>
+          </div>
+
+          <div class="bg-card rounded-xl border border-gray-800 overflow-hidden">
+              <div v-for="ex in browseResults" :key="ex.name" @click="openExerciseHistory(ex.name)"
+                   class="px-4 py-3 border-b border-gray-800/60 last:border-0 hover:bg-gray-800 cursor-pointer flex justify-between items-center">
+                  <div>
+                      <div class="font-medium text-gray-100">{{ ex.name }}</div>
+                      <div class="text-[11px] text-gray-500 mt-0.5">{{ ex.muscle }} · {{ ex.category }}</div>
+                  </div>
+                  <div class="text-right">
+                      <div class="text-[11px] text-gray-400">{{ lastSummary(ex.name) }}</div>
+                      <div class="text-[10px] text-gray-600">{{ sessionCount(ex.name) }}</div>
+                  </div>
+              </div>
+              <div v-if="browseResults.length === 0" class="p-6 text-center text-gray-500 text-sm">
+                  Nothing matches that. Add it as a custom exercise from inside a workout.
+              </div>
+          </div>
+      </div>
+
+      <!-- HISTORY -->
       <div v-if="currentTab === 'history'" class="p-4 space-y-4">
+          <div v-if="history.length === 0" class="text-center text-gray-500 mt-16 px-4">
+              <i class="fas fa-clock text-4xl mb-3 opacity-50"></i>
+              <p>No sessions logged. Import your Hevy CSV in Settings to bring your past lifts across.</p>
+          </div>
           <div v-for="workout in sortedHistory" :key="workout.id" class="bg-card rounded-xl p-5 shadow-lg border border-gray-800">
               <div class="flex justify-between items-start mb-4">
                   <div>
                       <h2 class="font-bold text-lg">{{ workout.name }}</h2>
                       <p class="text-xs text-gray-400 mt-1"><i class="fas fa-calendar-alt mr-1"></i> {{ formatDate(workout.startTime) }}</p>
                   </div>
+                  <div class="text-right">
+                      <div class="text-xs text-gray-400">{{ workoutVolume(workout) }} kg</div>
+                      <button @click="deleteWorkout(workout.id)" class="text-gray-600 hover:text-red-500 text-sm mt-2"><i class="fas fa-trash"></i></button>
+                  </div>
               </div>
               <div class="space-y-3">
-                  <div v-for="ex in workout.exercises" class="text-sm border-t border-gray-700/50 pt-3 flex justify-between">
-                     <span class="font-semibold text-gray-200">{{ ex.exerciseName }}</span>
-                     <span class="text-gray-400 font-medium">{{ getCompletedSets(ex).length }} sets</span>
+                  <div v-for="(ex, i) in workout.exercises" :key="i" class="text-sm border-t border-gray-700/50 pt-3">
+                     <div class="flex justify-between">
+                         <span class="font-semibold text-gray-200">{{ ex.exerciseName }}</span>
+                         <span class="text-gray-500 font-medium">{{ ex.sets.length }} sets</span>
+                     </div>
+                     <div class="text-xs text-gray-500 mt-1">{{ ex.sets.map(s => formatSet(s, getTracking(ex.exerciseName))).join('  ·  ') }}</div>
                   </div>
               </div>
           </div>
       </div>
 
-      <!-- SETTINGS TAB -->
+      <!-- SETTINGS -->
       <div v-if="currentTab === 'settings'" class="p-4 space-y-6">
           <div class="bg-card rounded-xl p-5 border border-gray-800 shadow-lg">
               <h2 class="font-bold text-lg mb-2 text-white"><i class="fas fa-file-csv mr-2 text-blue-500"></i> Import Hevy CSV</h2>
-              <p class="text-sm text-gray-400 mb-5">In the official Hevy app, go to Settings > Export Data and export <strong>workout_data.csv</strong>.</p>
+              <p class="text-sm text-gray-400 mb-5">In Hevy, go to Settings &gt; Export Data and export <strong>workout_data.csv</strong>. Weights logged in lb are converted to kg.</p>
               <label class="block w-full text-center bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg cursor-pointer border border-gray-700 transition">
-                  <span>Select CSV File</span>
+                  <span>Select CSV file</span>
                   <input type="file" @change="handleFileUpload" accept=".csv" class="hidden"/>
               </label>
               <div v-if="importStatus" class="mt-4 text-sm font-medium p-3 rounded-lg bg-gray-900 border" :class="importError ? 'text-red-400 border-red-900' : 'text-green-400 border-green-900'">
                   {{ importStatus }}
               </div>
           </div>
-          <div class="bg-card rounded-xl p-5 border border-red-900/30 shadow-lg mt-8">
-              <h2 class="font-bold text-lg text-red-500 mb-2"><i class="fas fa-exclamation-triangle mr-2"></i> Danger Zone</h2>
-              <p class="text-sm text-gray-400 mb-4">Permanently delete all routines and history.</p>
-              <button @click="clearAllData" class="w-full bg-red-900/30 text-red-500 py-3 rounded-lg font-bold border border-red-800/50 hover:bg-red-900/50 transition">Wipe All Local Data</button>
+
+          <div class="bg-card rounded-xl p-5 border border-gray-800 shadow-lg">
+              <h2 class="font-bold text-lg mb-2 text-white"><i class="fas fa-arrow-trend-up mr-2 text-blue-500"></i> Progressive overload</h2>
+              <p class="text-sm text-gray-400 mb-4">When your top set reaches this many reps, the next suggestion adds weight and drops back to the lower rep target.</p>
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-sm text-gray-300 w-32">Top of rep range</span>
+                  <input type="number" v-model.number="settings.repCeiling" @change="saveData" class="w-20 bg-gray-800 rounded-lg py-2 text-center border border-gray-700 focus:outline-none"/>
+              </div>
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-sm text-gray-300 w-32">Reset reps to</span>
+                  <input type="number" v-model.number="settings.repFloor" @change="saveData" class="w-20 bg-gray-800 rounded-lg py-2 text-center border border-gray-700 focus:outline-none"/>
+              </div>
+              <div class="flex items-center gap-3">
+                  <span class="text-sm text-gray-300 w-32">Weight jump (kg)</span>
+                  <input type="number" step="0.5" v-model.number="settings.increment" @change="saveData" class="w-20 bg-gray-800 rounded-lg py-2 text-center border border-gray-700 focus:outline-none"/>
+              </div>
+          </div>
+
+          <div class="bg-card rounded-xl p-5 border border-gray-800 shadow-lg">
+              <h2 class="font-bold text-lg mb-2 text-white"><i class="fas fa-box-archive mr-2 text-blue-500"></i> Backup</h2>
+              <p class="text-sm text-gray-400 mb-4">Everything lives in this browser only. Export a JSON backup before clearing site data or switching phones.</p>
+              <div class="flex gap-3">
+                  <button @click="exportBackup" class="flex-1 bg-gray-800 py-3 rounded-lg font-semibold border border-gray-700">Export JSON</button>
+                  <label class="flex-1 text-center bg-gray-800 py-3 rounded-lg font-semibold border border-gray-700 cursor-pointer">
+                      Restore
+                      <input type="file" @change="restoreBackup" accept=".json" class="hidden"/>
+                  </label>
+              </div>
+          </div>
+
+          <div class="bg-card rounded-xl p-5 border border-red-900/30 shadow-lg">
+              <h2 class="font-bold text-lg text-red-500 mb-2"><i class="fas fa-exclamation-triangle mr-2"></i> Danger zone</h2>
+              <p class="text-sm text-gray-400 mb-4">Deletes every routine, session and custom exercise on this device.</p>
+              <button @click="clearAllData" class="w-full bg-red-900/30 text-red-500 py-3 rounded-lg font-bold border border-red-800/50 hover:bg-red-900/50 transition">Wipe all local data</button>
           </div>
       </div>
   </div>
 
-  <!-- ACTIVE WORKOUT OVERLAY (UPDATED TO MATCH IMAGE) -->
+  <!-- ACTIVE WORKOUT -->
   <div v-if="activeWorkout" class="absolute inset-0 bg-[#000000] z-50 flex flex-col h-full">
-      <!-- Top Nav -->
       <div class="px-4 py-3 flex justify-between items-center bg-[#1c1c1e] border-b border-gray-800">
           <button @click="cancelWorkout" class="text-gray-400 text-xl hover:text-white w-8"><i class="fas fa-chevron-down"></i></button>
-          <div class="font-semibold text-white text-[15px]">Log Workout</div>
-          <div class="flex items-center space-x-4">
-              <i class="fas fa-stopwatch text-gray-400 text-xl"></i>
-              <button @click="finishWorkout" class="bg-[#3b82f6] hover:bg-blue-500 text-white px-5 py-1.5 rounded-full text-[15px] font-bold transition">Finish</button>
-          </div>
+          <div class="font-semibold text-white text-[15px]">{{ activeWorkout.name }}</div>
+          <button @click="finishWorkout" class="bg-[#3b82f6] hover:bg-blue-500 text-white px-5 py-1.5 rounded-full text-[15px] font-bold transition">Finish</button>
       </div>
-      
-      <!-- Stats Summary Banner -->
-      <div class="flex justify-between items-center px-6 py-3 border-b border-gray-800 bg-[#000000]">
+
+      <div class="flex justify-between items-center px-6 py-3 border-b border-gray-800 bg-black">
           <div class="flex flex-col">
               <span class="text-[11px] text-gray-500 font-medium mb-1">Duration</span>
               <span class="text-[#3b82f6] font-semibold text-sm">{{ activeWorkoutTime }}</span>
@@ -119,401 +196,1059 @@
               <span class="text-[11px] text-gray-500 font-medium mb-1">Sets</span>
               <span class="text-white font-semibold text-sm">{{ activeWorkoutSets }}</span>
           </div>
-          <!-- Tiny anatomy icon placeholder -->
-          <div class="flex space-x-1 opacity-70">
-              <i class="fas fa-male text-gray-400 text-lg"></i>
-              <i class="fas fa-male text-gray-400 text-lg"></i>
-          </div>
       </div>
-      
-      <!-- Exercise List -->
-      <div class="flex-1 overflow-y-auto pb-24">
+
+      <div class="flex-1 overflow-y-auto pb-28">
           <div v-for="(ex, exIndex) in activeWorkout.exercises" :key="exIndex" class="mb-8">
-              
-              <!-- Exercise Header -->
+
               <div class="px-4 pt-4 pb-2">
                   <div class="flex justify-between items-center mb-2">
                       <div class="flex items-center space-x-3">
                           <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black">
                               <i class="fas fa-dumbbell text-sm"></i>
                           </div>
-                          <h3 class="font-bold text-[#3b82f6] text-[17px]">{{ ex.exerciseName }}</h3>
+                          <h3 @click="openExerciseHistory(ex.exerciseName)" class="font-bold text-[#3b82f6] text-[17px] cursor-pointer">{{ ex.exerciseName }}</h3>
                       </div>
                       <button @click="removeExercise(exIndex)" class="text-gray-400 hover:text-white px-2"><i class="fas fa-ellipsis-v"></i></button>
                   </div>
-                  <p class="text-gray-500 text-sm mb-3">Add notes here...</p>
-                  <p class="text-[#3b82f6] text-sm font-medium mb-2"><i class="fas fa-stopwatch mr-1"></i> Rest Timer: OFF</p>
+
+                  <div class="text-xs text-gray-500 mb-2">
+                      Last session: {{ lastSummary(ex.exerciseName) }} · Best e1RM {{ bestE1RM(ex.exerciseName) }}
+                  </div>
+
+                  <div class="flex items-center gap-2 mb-3">
+                      <button v-if="suggestionFor(ex.exerciseName)" @click="applySuggestion(ex)"
+                              class="bg-[#3b82f6]/15 text-[#3b82f6] text-xs font-bold px-3 py-1.5 rounded-full">
+                          <i class="fas fa-arrow-trend-up mr-1"></i> Target {{ suggestionText(ex.exerciseName) }}
+                      </button>
+                      <button @click="cycleRest(ex)" class="text-[#3b82f6] text-xs font-medium px-2 py-1.5">
+                          <i class="fas fa-stopwatch mr-1"></i> Rest {{ ex.restSeconds ? ex.restSeconds + 's' : 'off' }}
+                      </button>
+                  </div>
               </div>
 
-              <!-- Set Headers -->
-              <div class="grid grid-cols-[12%_32%_23%_20%_13%] gap-1 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 text-center items-center">
-                  <div>Set</div>
-                  <div class="text-left pl-2">Previous</div>
-                  <div><i class="fas fa-dumbbell mr-1"></i>KG</div>
-                  <div>Reps</div>
-                  <div><i class="fas fa-check text-sm"></i></div>
+              <div class="flex px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 items-center gap-2">
+                  <div class="w-7 text-center">Set</div>
+                  <div class="flex-1 pl-1">Previous</div>
+                  <div v-for="f in fieldsFor(ex.exerciseName)" :key="f.key" class="w-[64px] text-center">{{ f.label }}</div>
+                  <div class="w-9 text-center"><i class="fas fa-check text-sm"></i></div>
               </div>
 
-              <!-- Sets Rows -->
-              <div v-for="(set, setIndex) in ex.sets" :key="setIndex" class="grid grid-cols-[12%_32%_23%_20%_13%] gap-1 px-4 mb-2 items-center text-center" :class="{'bg-[#121212] py-1 -mx-4 px-8': set.completed}">
-                  <div class="font-bold text-sm" :class="set.completed ? 'text-white' : 'text-gray-400'">{{ setIndex + 1 }}</div>
-                  
-                  <div class="text-left pl-2 text-sm text-gray-500">{{ set.previous || '-' }}</div>
-                  
-                  <div class="px-1">
-                      <input type="number" step="0.5" v-model="set.weight" placeholder="0" class="w-full bg-[#1c1c1e] text-white font-semibold rounded-lg py-1.5 text-center focus:outline-none focus:ring-1 focus:ring-[#3b82f6]" :class="set.completed ? 'bg-transparent' : ''"/>
+              <div v-for="(set, setIndex) in ex.sets" :key="setIndex"
+                   class="flex px-4 mb-2 items-center gap-2" :class="{'bg-[#121212] py-1': set.completed}">
+                  <div class="w-7 text-center font-bold text-sm" :class="set.completed ? 'text-white' : 'text-gray-400'">{{ setIndex + 1 }}</div>
+                  <div class="flex-1 pl-1 text-sm text-gray-500 truncate">{{ set.previous || '—' }}</div>
+                  <div v-for="f in fieldsFor(ex.exerciseName)" :key="f.key" class="w-[64px]">
+                      <input type="number" :step="f.step" v-model="set[f.key]" :placeholder="set['prev_' + f.key] || '0'"
+                             class="w-full bg-[#1c1c1e] text-white font-semibold rounded-lg py-1.5 text-center focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
+                             :class="set.completed ? 'bg-transparent' : ''"/>
                   </div>
-                  
-                  <div class="px-1">
-                      <input type="number" v-model="set.reps" placeholder="0" class="w-full bg-[#1c1c1e] text-white font-semibold rounded-lg py-1.5 text-center focus:outline-none focus:ring-1 focus:ring-[#3b82f6]" :class="set.completed ? 'bg-transparent' : ''"/>
-                  </div>
-                  
-                  <div class="flex justify-end pr-1">
-                      <button @click="toggleSetComplete(set)" class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors" :class="set.completed ? 'bg-[#4ade80] text-black' : 'bg-[#1c1c1e] text-gray-500'">
+                  <div class="w-9 flex justify-end">
+                      <button @click="toggleSetComplete(ex, set)" class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                              :class="set.completed ? 'bg-[#4ade80] text-black' : 'bg-[#1c1c1e] text-gray-500'">
                           <i class="fas fa-check text-sm"></i>
                       </button>
                   </div>
               </div>
-              
-              <!-- Add Set Button -->
-              <div class="px-4 mt-4">
-                  <button @click="addSet(ex)" class="w-full py-2 bg-[#1c1c1e] text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-800 transition">+ Add Set</button>
+
+              <div class="px-4 mt-4 flex gap-2">
+                  <button @click="addSet(ex)" class="flex-1 py-2 bg-[#1c1c1e] text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-800 transition">+ Add set</button>
+                  <button v-if="ex.sets.length > 1" @click="ex.sets.pop()" class="px-4 py-2 bg-[#1c1c1e] text-gray-500 text-sm font-semibold rounded-lg">−</button>
               </div>
           </div>
-          
-          <!-- Add Exercise Button (Bottom of list) -->
+
           <div class="px-4 mt-6 mb-8">
-              <button @click="addExercisePrompt" class="w-full py-3 bg-[#3b82f6]/20 text-[#3b82f6] text-sm font-bold rounded-lg transition hover:bg-[#3b82f6]/30">
-                  + Add Exercise
+              <button @click="openLibrary('active')" class="w-full py-3 bg-[#3b82f6]/20 text-[#3b82f6] text-sm font-bold rounded-lg transition hover:bg-[#3b82f6]/30">
+                  + Add exercise
               </button>
           </div>
       </div>
+
+      <div v-if="restRemaining > 0" class="absolute bottom-0 left-0 right-0 bg-[#3b82f6] text-white px-5 py-3 flex justify-between items-center font-semibold">
+          <span>Rest {{ restRemaining }}s</span>
+          <button @click="stopRest" class="text-sm font-bold">Skip</button>
+      </div>
   </div>
 
-  <!-- EXERCISE SELECTOR MODAL -->
-  <div v-if="showExerciseSelector" class="absolute inset-0 bg-[#000000] z-[60] flex flex-col h-full">
+  <!-- EXERCISE LIBRARY PICKER -->
+  <div v-if="showLibrary" class="absolute inset-0 bg-black z-[60] flex flex-col h-full">
      <div class="bg-card px-4 py-4 border-b border-gray-800 flex justify-between items-center shadow-md">
-          <button @click="showExerciseSelector = false" class="text-gray-400 font-medium">Back</button>
-          <h2 class="font-bold text-lg">Select Exercise</h2>
+          <button @click="showLibrary = false" class="text-gray-400 font-medium">Back</button>
+          <h2 class="font-bold text-lg">Exercises</h2>
           <div class="w-10"></div>
      </div>
-     <div class="p-4 border-b border-gray-800 bg-card/50">
+     <div class="p-4 space-y-3 border-b border-gray-800 bg-card/50">
          <div class="relative">
              <i class="fas fa-search absolute left-3 top-3.5 text-gray-500"></i>
-             <input v-model="exerciseSearch" placeholder="Search or add custom exercise..." class="w-full bg-gray-800 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none border border-gray-700"/>
+             <input v-model="exerciseSearch" placeholder="Search or type a new exercise name" class="w-full bg-gray-800 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none border border-gray-700"/>
          </div>
-         <button @click="addCustomExercise" v-if="exerciseSearch && !filteredDatabase.includes(exerciseSearch)" class="w-full mt-3 bg-blue-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-blue-500 transition">
-             Create "{{ exerciseSearch }}"
+         <div class="flex gap-2 overflow-x-auto">
+             <button v-for="c in categories" :key="c" @click="pickerCategory = c"
+                     class="chip px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap text-gray-300"
+                     :class="{ 'on': pickerCategory === c }">{{ c }}</button>
+         </div>
+         <button @click="addCustomExercise" v-if="exerciseSearch.trim() && !libraryHasName(exerciseSearch)"
+                 class="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-blue-500 transition">
+             Create "{{ exerciseSearch.trim() }}"
          </button>
      </div>
      <div class="flex-1 overflow-y-auto">
-         <div v-for="ex in filteredDatabase" @click="selectExercise(ex)" class="p-4 border-b border-gray-800/50 hover:bg-gray-800 cursor-pointer font-medium text-gray-200 transition">
-             {{ ex }}
+         <div v-for="ex in pickerResults" :key="ex.name" @click="selectExercise(ex.name)"
+              class="px-4 py-3 border-b border-gray-800/50 hover:bg-gray-800 cursor-pointer flex justify-between items-center">
+             <div>
+                 <div class="font-medium text-gray-200">{{ ex.name }}</div>
+                 <div class="text-[11px] text-gray-500 mt-0.5">{{ ex.muscle }} · {{ ex.category }}</div>
+             </div>
+             <div class="text-[11px] text-gray-500">{{ lastSummary(ex.name) }}</div>
          </div>
      </div>
   </div>
 
-  <!-- ROUTINE EDITOR MODAL -->
-  <div v-if="editingRoutine" class="absolute inset-0 bg-[#000000] z-[40] flex flex-col h-full">
+  <!-- EXERCISE HISTORY -->
+  <div v-if="historyExercise" class="absolute inset-0 bg-black z-[70] flex flex-col h-full">
+      <div class="bg-card px-4 py-4 border-b border-gray-800 flex justify-between items-center">
+          <button @click="historyExercise = null" class="text-gray-400 font-medium">Back</button>
+          <h2 class="font-bold text-base truncate px-3">{{ historyExercise }}</h2>
+          <div class="w-10"></div>
+      </div>
+      <div class="p-4 space-y-4 overflow-y-auto">
+          <div class="bg-card rounded-xl p-4 border border-gray-800 flex justify-between">
+              <div>
+                  <div class="text-[11px] text-gray-500">Best e1RM</div>
+                  <div class="font-bold text-lg">{{ bestE1RM(historyExercise) }}</div>
+              </div>
+              <div>
+                  <div class="text-[11px] text-gray-500">Heaviest set</div>
+                  <div class="font-bold text-lg">{{ heaviestSet(historyExercise) }}</div>
+              </div>
+              <div>
+                  <div class="text-[11px] text-gray-500">Sessions</div>
+                  <div class="font-bold text-lg">{{ (historyIndex[historyExercise] || []).length }}</div>
+              </div>
+          </div>
+          <div v-for="(s, i) in (historyIndex[historyExercise] || [])" :key="i" class="bg-card rounded-xl p-4 border border-gray-800">
+              <div class="flex justify-between items-center mb-2">
+                  <span class="text-sm font-semibold text-gray-200">{{ s.workoutName }}</span>
+                  <span class="text-[11px] text-gray-500">{{ formatDate(s.startTime) }}</span>
+              </div>
+              <div class="space-y-1">
+                  <div v-for="(set, si) in s.sets" :key="si" class="text-sm text-gray-400 flex gap-3">
+                      <span class="w-5 text-gray-600">{{ si + 1 }}</span>
+                      <span>{{ formatSet(set, getTracking(historyExercise)) }}</span>
+                  </div>
+              </div>
+          </div>
+          <div v-if="!(historyIndex[historyExercise] || []).length" class="text-center text-gray-500 py-10 text-sm">
+              Nothing logged yet. Once you finish a session with this exercise it shows up here and feeds the previous column.
+          </div>
+      </div>
+  </div>
+
+  <!-- ROUTINE EDITOR -->
+  <div v-if="editingRoutine" class="absolute inset-0 bg-black z-[40] flex flex-col h-full">
       <div class="bg-card px-4 py-4 border-b border-gray-800 flex justify-between items-center shadow-lg">
           <button @click="cancelEditRoutine" class="text-gray-400 font-medium">Cancel</button>
-          <h2 class="font-bold text-lg">Edit Routine</h2>
+          <h2 class="font-bold text-lg">Edit routine</h2>
           <button @click="saveRoutine" class="text-blue-500 font-bold hover:text-blue-400 transition">Save</button>
       </div>
       <div class="p-4 flex-1 overflow-y-auto space-y-4">
-          <input v-model="editingRoutine.name" placeholder="Routine Name" class="w-full bg-gray-800 text-xl font-bold rounded-xl p-4 focus:outline-none focus:ring-1 focus:ring-blue-500 border border-gray-700"/>
-          
+          <input v-model="editingRoutine.name" placeholder="Routine name" class="w-full bg-gray-800 text-xl font-bold rounded-xl p-4 focus:outline-none focus:ring-1 focus:ring-blue-500 border border-gray-700"/>
+
           <div v-for="(ex, index) in editingRoutine.exercises" :key="index" class="bg-card p-4 rounded-xl border border-gray-800 shadow-sm relative">
-              <div class="font-bold text-blue-400 text-lg mb-1 pr-8">{{ ex.exerciseName }}</div>
-              <button @click="editingRoutine.exercises.splice(index, 1)" class="absolute top-4 right-4 text-gray-500 hover:text-red-500 text-lg"><i class="fas fa-trash"></i></button>
-              <div class="text-sm font-medium text-gray-400">{{ ex.sets.length }} sets</div>
+              <div class="font-bold text-blue-400 text-lg mb-1 pr-20">{{ ex.exerciseName }}</div>
+              <div class="absolute top-4 right-4 space-x-3 text-lg">
+                  <button @click="moveExercise(index, -1)" v-if="index > 0" class="text-gray-500 hover:text-white"><i class="fas fa-arrow-up"></i></button>
+                  <button @click="moveExercise(index, 1)" v-if="index < editingRoutine.exercises.length - 1" class="text-gray-500 hover:text-white"><i class="fas fa-arrow-down"></i></button>
+                  <button @click="editingRoutine.exercises.splice(index, 1)" class="text-gray-500 hover:text-red-500"><i class="fas fa-trash"></i></button>
+              </div>
+              <div class="text-sm font-medium text-gray-400">{{ ex.sets.length }} sets · {{ getTracking(ex.exerciseName) }}</div>
               <div class="mt-4 flex space-x-2">
-                  <button @click="ex.sets.push({reps:0, weight:0})" class="bg-gray-800 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 border border-gray-700/50">+ Add Set</button>
-                  <button @click="ex.sets.pop()" v-if="ex.sets.length > 1" class="bg-gray-800 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 border border-gray-700/50">- Remove</button>
+                  <button @click="ex.sets.push({})" class="bg-gray-800 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 border border-gray-700/50">+ Add set</button>
+                  <button @click="ex.sets.pop()" v-if="ex.sets.length > 1" class="bg-gray-800 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 border border-gray-700/50">− Remove</button>
               </div>
           </div>
-          
-          <button @click="addExercisePromptToRoutine" class="w-full bg-blue-900/20 text-blue-400 border border-blue-800/50 font-bold py-4 rounded-xl shadow-sm">
-              <i class="fas fa-plus mr-1"></i> Add Exercise
+
+          <button @click="openLibrary('routine')" class="w-full bg-blue-900/20 text-blue-400 border border-blue-800/50 font-bold py-4 rounded-xl shadow-sm">
+              <i class="fas fa-plus mr-1"></i> Add exercise
           </button>
       </div>
   </div>
 
-  <!-- BOTTOM NAVIGATION BAR -->
+  <!-- NAV -->
   <nav class="bg-card border-t border-gray-800 flex justify-around items-center pt-2 pb-6 absolute bottom-0 w-full z-10 h-20">
-      <button @click="currentTab = 'routines'" class="flex flex-col items-center nav-item w-1/3 transition-colors" :class="{ 'active': currentTab === 'routines', 'text-gray-500': currentTab !== 'routines' }">
-          <i class="fas fa-clipboard-list text-2xl mb-1"></i>
-          <span class="text-[11px] font-medium">Routines</span>
-      </button>
-      <button @click="currentTab = 'history'" class="flex flex-col items-center nav-item w-1/3 transition-colors" :class="{ 'active': currentTab === 'history', 'text-gray-500': currentTab !== 'history' }">
-          <i class="fas fa-clock text-2xl mb-1"></i>
-          <span class="text-[11px] font-medium">History</span>
-      </button>
-      <button @click="currentTab = 'settings'" class="flex flex-col items-center nav-item w-1/3 transition-colors" :class="{ 'active': currentTab === 'settings', 'text-gray-500': currentTab !== 'settings' }">
-          <i class="fas fa-cog text-2xl mb-1"></i>
-          <span class="text-[11px] font-medium">Settings</span>
+      <button v-for="t in tabs" :key="t.id" @click="currentTab = t.id"
+              class="flex flex-col items-center nav-item w-1/4 transition-colors"
+              :class="{ 'active': currentTab === t.id, 'text-gray-500': currentTab !== t.id }">
+          <i :class="['fas', t.icon, 'text-2xl', 'mb-1']"></i>
+          <span class="text-[11px] font-medium">{{ t.label }}</span>
       </button>
   </nav>
 
 </div>
 
 <script>
-  const { createApp } = Vue;
+const { createApp } = Vue;
 
-  createApp({
-      data() {
-          return {
-              currentTab: 'routines',
-              tabTitles: { routines: 'My Routines', history: 'Workout History', settings: 'Settings' },
-              routines: [],
-              history: [],
-              
-              activeWorkout: null,
-              workoutTimer: null,
-              activeWorkoutSeconds: 0,
-              
-              editingRoutine: null,
-              editingRoutineIndex: -1,
-              
-              showExerciseSelector: false,
-              exerciseSearch: '',
-              targetForExercise: null, 
-              
-              exerciseDB: [
-                  "Bench Press (Barbell)", "Incline Bench Press (Dumbbell)", "Squat (Barbell)", "Deadlift (Barbell)", 
-                  "Overhead Press (Dumbbell)", "Pull Up", "Lat Pulldown (Cable)", "Low Cable Fly Crossovers",
-                  "Bicep Curl (Dumbbell)", "Tricep Extension (Cable)", "Leg Press"
-              ],
-              
-              importStatus: '',
-              importError: false
-          }
-      },
-      computed: {
-          sortedHistory() {
-              return [...this.history].sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-          },
-          activeWorkoutTime() {
-              if (this.activeWorkoutSeconds < 3600) {
-                  const m = Math.floor(this.activeWorkoutSeconds / 60);
-                  const s = this.activeWorkoutSeconds % 60;
-                  return `${m}min ${s}s`;
-              }
-              const h = Math.floor(this.activeWorkoutSeconds / 3600);
-              const m = Math.floor((this.activeWorkoutSeconds % 3600) / 60);
-              return `${h}h ${m}m`;
-          },
-          activeWorkoutVolume() {
-              if (!this.activeWorkout) return 0;
-              let vol = 0;
-              this.activeWorkout.exercises.forEach(ex => {
-                  ex.sets.forEach(set => {
-                      if (set.completed && set.weight && set.reps) {
-                          vol += (parseFloat(set.weight) * parseInt(set.reps));
-                      }
-                  });
-              });
-              return vol;
-          },
-          activeWorkoutSets() {
-              if (!this.activeWorkout) return 0;
-              let count = 0;
-              this.activeWorkout.exercises.forEach(ex => {
-                  count += ex.sets.filter(s => s.completed).length;
-              });
-              return count;
-          },
-          filteredDatabase() {
-              if(!this.exerciseSearch) return this.exerciseDB;
-              return this.exerciseDB.filter(e => e.toLowerCase().includes(this.exerciseSearch.toLowerCase()));
-          }
-      },
-      mounted() {
-          this.loadData();
-      },
-      methods: {
-          saveData() {
-              localStorage.setItem('hevy_replica_routines', JSON.stringify(this.routines));
-              localStorage.setItem('hevy_replica_history', JSON.stringify(this.history));
-              localStorage.setItem('hevy_replica_exerciseDB', JSON.stringify(this.exerciseDB));
-          },
-          loadData() {
-              const r = localStorage.getItem('hevy_replica_routines');
-              const h = localStorage.getItem('hevy_replica_history');
-              const db = localStorage.getItem('hevy_replica_exerciseDB');
-              if(r) this.routines = JSON.parse(r);
-              if(h) this.history = JSON.parse(h);
-              if(db) this.exerciseDB = JSON.parse(db);
-          },
-          getRoutineExercisesText(routine) {
-              if (!routine.exercises || routine.exercises.length === 0) return 'No exercises added yet.';
-              return routine.exercises.map(e => e.exerciseName).join(', ');
-          },
-          createNewRoutine() {
-              this.editingRoutine = { name: 'New Routine', exercises: [] };
-              this.editingRoutineIndex = -1;
-          },
-          editRoutine(index) {
-              this.editingRoutine = JSON.parse(JSON.stringify(this.routines[index]));
-              this.editingRoutineIndex = index;
-          },
-          saveRoutine() {
-              if (this.editingRoutineIndex >= 0) {
-                  this.routines[this.editingRoutineIndex] = this.editingRoutine;
-              } else {
-                  this.routines.push(this.editingRoutine); 
-              }
-              this.editingRoutine = null;
-              this.saveData();
-          },
-          cancelEditRoutine() { this.editingRoutine = null; },
-          deleteRoutine(index) {
-              if(confirm("Delete this routine?")) {
-                  this.routines.splice(index, 1);
-                  this.saveData();
-              }
-          },
-          startWorkout(routine) {
-              this.activeWorkout = {
-                  id: Date.now().toString(),
-                  name: routine ? routine.name : 'Empty Workout',
-                  startTime: new Date().toISOString(),
-                  exercises: routine ? JSON.parse(JSON.stringify(routine.exercises)).map(ex => {
-                      ex.sets.forEach(set => { set.completed = false; set.previous = '10kg x 10'; /* Mock previous data */ });
-                      return ex;
-                  }) : []
-              };
-              this.activeWorkoutSeconds = 0;
-              this.workoutTimer = setInterval(() => this.activeWorkoutSeconds++, 1000);
-          },
-          cancelWorkout() {
-              if(confirm("Cancel workout? Data won't be saved.")) {
-                  clearInterval(this.workoutTimer);
-                  this.activeWorkout = null;
-              }
-          },
-          finishWorkout() {
-              clearInterval(this.workoutTimer);
-              this.activeWorkout.endTime = new Date().toISOString();
-              this.activeWorkout.exercises.forEach(ex => {
-                  ex.sets = ex.sets.filter(s => s.completed);
-              });
-              this.activeWorkout.exercises = this.activeWorkout.exercises.filter(ex => ex.sets.length > 0);
-              
-              if(this.activeWorkout.exercises.length > 0) {
-                  this.history.push(this.activeWorkout);
-                  this.saveData();
-              }
-              this.activeWorkout = null;
-          },
-          toggleSetComplete(set) { set.completed = !set.completed; },
-          addSet(ex) {
-              const lastSet = ex.sets[ex.sets.length - 1] || { weight: '', reps: '' };
-              ex.sets.push({ weight: lastSet.weight, reps: lastSet.reps, completed: false, previous: '-' });
-          },
-          removeExercise(index) { this.activeWorkout.exercises.splice(index, 1); },
-          getCompletedSets(ex) { return ex.sets.filter(s => s.completed !== false); },
+/* ---------------------------------------------------------------
+   EXERCISE LIBRARY
+   t = tracking type: weighted | reps | duration | cardio
+----------------------------------------------------------------*/
+const LIB = [
+// ---- Gym: chest
+{n:"Bench Press (Barbell)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Bench Press (Dumbbell)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Incline Bench Press (Barbell)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Incline Bench Press (Dumbbell)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Decline Bench Press (Barbell)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Chest Press (Machine)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Incline Chest Press (Machine)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Chest Fly (Machine)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Chest Fly (Dumbbell)",c:"Gym",m:"Chest",t:"weighted"},
+{n:"High Cable Fly Crossovers",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Low Cable Fly Crossovers",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Chest Dip",c:"Gym",m:"Chest",t:"weighted"},
+{n:"Dumbbell Pullover",c:"Gym",m:"Chest",t:"weighted"},
+// ---- Gym: back
+{n:"Deadlift (Barbell)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Sumo Deadlift (Barbell)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Rack Pull",c:"Gym",m:"Back",t:"weighted"},
+{n:"Lat Pulldown (Cable)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Close Grip Lat Pulldown (Cable)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Single Arm Lat Pulldown (Cable)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Straight Arm Pulldown (Cable)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Seated Row (Cable)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Bent Over Row (Barbell)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Bent Over Row (Dumbbell)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Single Arm Row (Dumbbell)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Chest Supported Row (Machine)",c:"Gym",m:"Back",t:"weighted"},
+{n:"T-Bar Row",c:"Gym",m:"Back",t:"weighted"},
+{n:"Pendlay Row",c:"Gym",m:"Back",t:"weighted"},
+{n:"Pull Up",c:"Gym",m:"Back",t:"weighted"},
+{n:"Chin Up",c:"Gym",m:"Back",t:"weighted"},
+{n:"Assisted Pull Up (Machine)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Shrug (Barbell)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Shrug (Dumbbell)",c:"Gym",m:"Back",t:"weighted"},
+{n:"Back Extension",c:"Gym",m:"Back",t:"weighted"},
+{n:"Good Morning (Barbell)",c:"Gym",m:"Back",t:"weighted"},
+// ---- Gym: shoulders
+{n:"Overhead Press (Barbell)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Overhead Press (Dumbbell)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Shoulder Press (Machine)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Arnold Press (Dumbbell)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Lateral Raise (Dumbbell)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Lateral Raise (Cable)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Lateral Raise (Machine)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Front Raise (Dumbbell)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Rear Delt Fly (Dumbbell)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Reverse Pec Deck (Machine)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Face Pull (Cable)",c:"Gym",m:"Shoulders",t:"weighted"},
+{n:"Upright Row (Cable)",c:"Gym",m:"Shoulders",t:"weighted"},
+// ---- Gym: arms
+{n:"Bicep Curl (Dumbbell)",c:"Gym",m:"Biceps",t:"weighted"},
+{n:"Bicep Curl (Barbell)",c:"Gym",m:"Biceps",t:"weighted"},
+{n:"Bicep Curl (Cable)",c:"Gym",m:"Biceps",t:"weighted"},
+{n:"EZ Bar Curl",c:"Gym",m:"Biceps",t:"weighted"},
+{n:"Hammer Curl (Dumbbell)",c:"Gym",m:"Biceps",t:"weighted"},
+{n:"Preacher Curl",c:"Gym",m:"Biceps",t:"weighted"},
+{n:"Incline Curl (Dumbbell)",c:"Gym",m:"Biceps",t:"weighted"},
+{n:"Concentration Curl",c:"Gym",m:"Biceps",t:"weighted"},
+{n:"Tricep Pushdown (Cable)",c:"Gym",m:"Triceps",t:"weighted"},
+{n:"Rope Pushdown (Cable)",c:"Gym",m:"Triceps",t:"weighted"},
+{n:"Overhead Tricep Extension (Cable)",c:"Gym",m:"Triceps",t:"weighted"},
+{n:"Overhead Tricep Extension (Dumbbell)",c:"Gym",m:"Triceps",t:"weighted"},
+{n:"Skull Crusher (EZ Bar)",c:"Gym",m:"Triceps",t:"weighted"},
+{n:"Close Grip Bench Press (Barbell)",c:"Gym",m:"Triceps",t:"weighted"},
+{n:"Tricep Dip",c:"Gym",m:"Triceps",t:"weighted"},
+{n:"Tricep Kickback (Dumbbell)",c:"Gym",m:"Triceps",t:"weighted"},
+{n:"Wrist Curl (Dumbbell)",c:"Gym",m:"Forearms",t:"weighted"},
+{n:"Reverse Curl (Barbell)",c:"Gym",m:"Forearms",t:"weighted"},
+{n:"Farmers Walk",c:"Gym",m:"Forearms",t:"weighted"},
+// ---- Gym: legs & glutes
+{n:"Squat (Barbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Front Squat (Barbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Goblet Squat (Dumbbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Hack Squat (Machine)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Leg Press",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Bulgarian Split Squat (Dumbbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Lunge (Dumbbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Walking Lunge (Dumbbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Step Up (Dumbbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Leg Extension (Machine)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Seated Leg Curl (Machine)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Lying Leg Curl (Machine)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Romanian Deadlift (Barbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Romanian Deadlift (Dumbbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Stiff Leg Deadlift (Barbell)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Hip Thrust (Barbell)",c:"Gym",m:"Glutes",t:"weighted"},
+{n:"Glute Bridge (Barbell)",c:"Gym",m:"Glutes",t:"weighted"},
+{n:"Hip Abduction (Machine)",c:"Gym",m:"Glutes",t:"weighted"},
+{n:"Hip Adduction (Machine)",c:"Gym",m:"Legs",t:"weighted"},
+{n:"Cable Kickback",c:"Gym",m:"Glutes",t:"weighted"},
+{n:"Standing Calf Raise",c:"Gym",m:"Calves",t:"weighted"},
+{n:"Seated Calf Raise",c:"Gym",m:"Calves",t:"weighted"},
+{n:"Leg Press Calf Raise",c:"Gym",m:"Calves",t:"weighted"},
+// ---- Gym: core
+{n:"Cable Crunch",c:"Gym",m:"Core",t:"weighted"},
+{n:"Ab Crunch (Machine)",c:"Gym",m:"Core",t:"weighted"},
+{n:"Weighted Decline Sit Up",c:"Gym",m:"Core",t:"weighted"},
+{n:"Pallof Press (Cable)",c:"Gym",m:"Core",t:"weighted"},
+{n:"Ab Wheel Rollout",c:"Gym",m:"Core",t:"reps"},
+{n:"Hanging Leg Raise",c:"Gym",m:"Core",t:"reps"},
+{n:"Hanging Knee Raise",c:"Gym",m:"Core",t:"reps"},
+// ---- Bodyweight
+{n:"Push Up",c:"Bodyweight",m:"Chest",t:"reps"},
+{n:"Wide Push Up",c:"Bodyweight",m:"Chest",t:"reps"},
+{n:"Diamond Push Up",c:"Bodyweight",m:"Triceps",t:"reps"},
+{n:"Decline Push Up",c:"Bodyweight",m:"Chest",t:"reps"},
+{n:"Incline Push Up",c:"Bodyweight",m:"Chest",t:"reps"},
+{n:"Pike Push Up",c:"Bodyweight",m:"Shoulders",t:"reps"},
+{n:"Archer Push Up",c:"Bodyweight",m:"Chest",t:"reps"},
+{n:"Inverted Row",c:"Bodyweight",m:"Back",t:"reps"},
+{n:"Bodyweight Dip",c:"Bodyweight",m:"Triceps",t:"reps"},
+{n:"Bodyweight Squat",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Jump Squat",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Pistol Squat",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Bodyweight Lunge",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Reverse Lunge",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Bodyweight Step Up",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Glute Bridge (Bodyweight)",c:"Bodyweight",m:"Glutes",t:"reps"},
+{n:"Single Leg Glute Bridge",c:"Bodyweight",m:"Glutes",t:"reps"},
+{n:"Nordic Hamstring Curl",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Calf Raise (Bodyweight)",c:"Bodyweight",m:"Calves",t:"reps"},
+{n:"Burpee",c:"Bodyweight",m:"Full Body",t:"reps"},
+{n:"Mountain Climber",c:"Bodyweight",m:"Core",t:"reps"},
+{n:"Bear Crawl",c:"Bodyweight",m:"Full Body",t:"duration"},
+{n:"Box Jump",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Broad Jump",c:"Bodyweight",m:"Legs",t:"reps"},
+{n:"Sit Up",c:"Bodyweight",m:"Core",t:"reps"},
+{n:"Crunch",c:"Bodyweight",m:"Core",t:"reps"},
+{n:"Bicycle Crunch",c:"Bodyweight",m:"Core",t:"reps"},
+{n:"Lying Leg Raise",c:"Bodyweight",m:"Core",t:"reps"},
+{n:"Flutter Kicks",c:"Bodyweight",m:"Core",t:"duration"},
+{n:"Russian Twist",c:"Bodyweight",m:"Core",t:"reps"},
+{n:"Plank",c:"Bodyweight",m:"Core",t:"duration"},
+{n:"Side Plank",c:"Bodyweight",m:"Core",t:"duration"},
+{n:"Hollow Body Hold",c:"Bodyweight",m:"Core",t:"duration"},
+{n:"Superman Hold",c:"Bodyweight",m:"Back",t:"duration"},
+{n:"Wall Sit",c:"Bodyweight",m:"Legs",t:"duration"},
+{n:"Dead Bug",c:"Bodyweight",m:"Core",t:"reps"},
+{n:"Bird Dog",c:"Bodyweight",m:"Core",t:"reps"},
+{n:"Handstand Hold",c:"Bodyweight",m:"Shoulders",t:"duration"},
+{n:"Jumping Jacks",c:"Bodyweight",m:"Full Body",t:"reps"},
+// ---- Cardio
+{n:"Treadmill Run",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Treadmill Walk",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Incline Treadmill Walk",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Outdoor Run",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Outdoor Walk",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Stationary Bike",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Spin Bike",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Cycling (Outdoor)",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Rowing Machine",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Elliptical",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Stair Climber",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Assault Bike",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Swimming",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Hiking",c:"Cardio",m:"Cardio",t:"cardio"},
+{n:"Jump Rope",c:"Cardio",m:"Cardio",t:"duration"},
+{n:"Battle Ropes",c:"Cardio",m:"Cardio",t:"duration"},
+{n:"Sled Push",c:"Cardio",m:"Full Body",t:"weighted"},
+{n:"HIIT Intervals",c:"Cardio",m:"Cardio",t:"duration"},
+// ---- Stretching & mobility
+{n:"Hamstring Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Standing Forward Fold",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Seated Forward Fold",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Quad Stretch (Standing)",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Couch Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Hip Flexor Stretch (Kneeling)",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Pigeon Pose",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"90/90 Hip Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Butterfly Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Piriformis Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Supine Spinal Twist",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Child's Pose",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Cat Cow",c:"Stretching",m:"Mobility",t:"reps"},
+{n:"Cobra Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Downward Dog",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Thread the Needle",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Thoracic Extension (Foam Roll)",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Doorway Chest Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Lat Stretch (Hang)",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Cross-Body Shoulder Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Overhead Triceps Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Neck Side Stretch",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Calf Stretch (Wall)",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Ankle Mobility Rock",c:"Stretching",m:"Mobility",t:"reps"},
+{n:"World's Greatest Stretch",c:"Stretching",m:"Mobility",t:"reps"},
+{n:"Leg Swings",c:"Stretching",m:"Mobility",t:"reps"},
+{n:"Hip Circles",c:"Stretching",m:"Mobility",t:"reps"},
+{n:"Shoulder Dislocates (Band)",c:"Stretching",m:"Mobility",t:"reps"},
+{n:"Foam Roll Quads",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Foam Roll IT Band",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Foam Roll Glutes",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Foam Roll Upper Back",c:"Stretching",m:"Mobility",t:"duration"},
+{n:"Wrist Flexor Stretch",c:"Stretching",m:"Mobility",t:"duration"}
+].map(e => ({ name: e.n, category: e.c, muscle: e.m, tracking: e.t }));
 
-          addExercisePrompt() {
-              this.targetForExercise = 'active';
-              this.exerciseSearch = '';
-              this.showExerciseSelector = true;
-          },
-          addExercisePromptToRoutine() {
-              this.targetForExercise = 'routine';
-              this.exerciseSearch = '';
-              this.showExerciseSelector = true;
-          },
-          selectExercise(name) {
-              this.showExerciseSelector = false;
-              const newEx = { exerciseName: name, sets: [{ weight: '', reps: '', completed: false, previous: '-' }] };
-              
-              if(this.targetForExercise === 'active') {
-                  this.activeWorkout.exercises.push(newEx);
-              } else if (this.targetForExercise === 'routine') {
-                  this.editingRoutine.exercises.push(newEx);
-              }
-          },
-          addCustomExercise() {
-              if(!this.exerciseDB.includes(this.exerciseSearch)) {
-                  this.exerciseDB.push(this.exerciseSearch);
-                  this.saveData();
-              }
-              this.selectExercise(this.exerciseSearch);
-          },
-          formatDate(dateString) {
-              return new Date(dateString).toLocaleDateString(undefined, { 
-                  weekday: 'short', month: 'short', day: 'numeric', 
-                  hour: '2-digit', minute: '2-digit' 
-              });
-          },
-          handleFileUpload(event) {
-              const file = event.target.files[0];
-              if (!file) return;
-              this.importStatus = "Reading CSV...";
-              this.importError = false;
-              Papa.parse(file, {
-                  header: true,
-                  skipEmptyLines: true,
-                  complete: (results) => {
-                      try {
-                          const data = results.data;
-                          if (!data[0] || !data[0].hasOwnProperty('exercise_title')) {
-                              throw new Error("Invalid format. Please ensure you are uploading Hevy's workout_data.csv");
-                          }
-                          const workoutGroups = {};
-                          data.forEach(row => {
-                              if (!row.start_time) return;
-                              let parsedDate = new Date(row.start_time.replace(/"/g, ''));
-                              if(isNaN(parsedDate)) parsedDate = new Date(); 
-                              const wKey = row.title + "_" + parsedDate.getTime();
-                              
-                              if (!workoutGroups[wKey]) {
-                                  workoutGroups[wKey] = { id: wKey, name: row.title || 'Imported Workout', startTime: parsedDate.toISOString(), endTime: new Date(row.end_time || parsedDate).toISOString(), exercisesMap: {} };
-                              }
-                              
-                              const exName = row.exercise_title || 'Unknown Exercise';
-                              if (!workoutGroups[wKey].exercisesMap[exName]) {
-                                  workoutGroups[wKey].exercisesMap[exName] = { exerciseName: exName, sets: [] };
-                                  if(!this.exerciseDB.includes(exName)) this.exerciseDB.push(exName);
-                              }
-                              
-                              workoutGroups[wKey].exercisesMap[exName].sets.push({
-                                  weight: parseFloat(row.weight_lbs || row.weight || 0), reps: parseInt(row.reps || 0), completed: true, type: row.set_type || 'normal'
-                              });
-                          });
+const FIELDS = {
+    weighted: [{ key: 'weight', label: 'KG', step: '0.5' }, { key: 'reps', label: 'Reps', step: '1' }],
+    reps:     [{ key: 'reps', label: 'Reps', step: '1' }],
+    duration: [{ key: 'seconds', label: 'Sec', step: '5' }],
+    cardio:   [{ key: 'distance', label: 'KM', step: '0.1' }, { key: 'minutes', label: 'Min', step: '1' }]
+};
 
-                          const importedWorkouts = Object.values(workoutGroups).map(w => ({ id: w.id, name: w.name, startTime: w.startTime, endTime: w.endTime, exercises: Object.values(w.exercisesMap) }));
-                          const existingIds = new Set(this.history.map(h => h.id));
-                          let added = 0;
-                          
-                          importedWorkouts.forEach(iw => {
-                              if (!existingIds.has(iw.id)) { this.history.push(iw); added++; }
-                          });
-                          
-                          this.saveData();
-                          this.importStatus = `Successfully imported ${added} past workouts from Hevy! Check the History tab.`;
-                      } catch (err) {
-                          this.importError = true;
-                          this.importStatus = err.message;
-                      }
-                  }
-              });
-          },
-          clearAllData() {
-              if(confirm("Are you SURE you want to delete all routines and history? This cannot be undone.")) {
-                  localStorage.removeItem('hevy_replica_routines');
-                  localStorage.removeItem('hevy_replica_history');
-                  localStorage.removeItem('hevy_replica_exerciseDB');
-                  this.routines = [];
-                  this.history = [];
-                  this.importStatus = "All data cleared successfully.";
-                  this.importError = false;
-              }
-          }
-      }
-  }).mount('#app');
+const KEYS = { routines: 'hl_routines', history: 'hl_history', custom: 'hl_custom_exercises', settings: 'hl_settings' };
+
+createApp({
+    data() {
+        return {
+            currentTab: 'routines',
+            tabTitles: { routines: 'My routines', exercises: 'Exercises', history: 'Workout history', settings: 'Settings' },
+            tabs: [
+                { id: 'routines', label: 'Routines', icon: 'fa-clipboard-list' },
+                { id: 'exercises', label: 'Exercises', icon: 'fa-dumbbell' },
+                { id: 'history', label: 'History', icon: 'fa-clock' },
+                { id: 'settings', label: 'Settings', icon: 'fa-cog' }
+            ],
+            routines: [],
+            history: [],
+            customExercises: [],
+            settings: { repCeiling: 12, repFloor: 8, increment: 2.5 },
+
+            activeWorkout: null,
+            workoutTimer: null,
+            activeWorkoutSeconds: 0,
+            restTimer: null,
+            restRemaining: 0,
+
+            editingRoutine: null,
+            editingRoutineIndex: -1,
+
+            showLibrary: false,
+            libraryTarget: null,
+            exerciseSearch: '',
+            pickerCategory: 'All',
+
+            browseSearch: '',
+            browseCategory: 'All',
+            browseMuscle: 'All',
+
+            historyExercise: null,
+
+            categories: ['All', 'Gym', 'Bodyweight', 'Cardio', 'Stretching', 'Custom'],
+            muscleFilters: ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms', 'Legs', 'Glutes', 'Calves', 'Core', 'Full Body', 'Cardio', 'Mobility'],
+
+            importStatus: '',
+            importError: false
+        }
+    },
+
+    computed: {
+        library() { return LIB.concat(this.customExercises); },
+
+        libraryMap() {
+            const m = {};
+            this.library.forEach(e => m[e.name.toLowerCase()] = e);
+            return m;
+        },
+
+        /* name -> sessions, newest first. This is what drives the previous column. */
+        historyIndex() {
+            const idx = {};
+            this.history.forEach(w => {
+                (w.exercises || []).forEach(ex => {
+                    const sets = (ex.sets || []).filter(s => s.type !== 'warmup');
+                    if (!sets.length) return;
+                    if (!idx[ex.exerciseName]) idx[ex.exerciseName] = [];
+                    idx[ex.exerciseName].push({ startTime: w.startTime, workoutName: w.name, sets });
+                });
+            });
+            Object.values(idx).forEach(list => list.sort((a, b) => new Date(b.startTime) - new Date(a.startTime)));
+            return idx;
+        },
+
+        sortedHistory() {
+            return [...this.history].sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+        },
+
+        pickerResults() {
+            return this.filterLibrary(this.exerciseSearch, this.pickerCategory, 'All');
+        },
+
+        browseResults() {
+            return this.filterLibrary(this.browseSearch, this.browseCategory, this.browseMuscle);
+        },
+
+        activeWorkoutTime() {
+            const s = this.activeWorkoutSeconds;
+            if (s < 3600) return `${Math.floor(s / 60)}min ${s % 60}s`;
+            return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+        },
+
+        activeWorkoutVolume() {
+            if (!this.activeWorkout) return 0;
+            let vol = 0;
+            this.activeWorkout.exercises.forEach(ex => {
+                ex.sets.forEach(set => {
+                    if (set.completed && set.weight && set.reps) vol += parseFloat(set.weight) * parseInt(set.reps);
+                });
+            });
+            return Math.round(vol);
+        },
+
+        activeWorkoutSets() {
+            if (!this.activeWorkout) return 0;
+            return this.activeWorkout.exercises.reduce((n, ex) => n + ex.sets.filter(s => s.completed).length, 0);
+        }
+    },
+
+    mounted() { this.loadData(); },
+
+    methods: {
+        /* ---------- storage ---------- */
+        saveData() {
+            localStorage.setItem(KEYS.routines, JSON.stringify(this.routines));
+            localStorage.setItem(KEYS.history, JSON.stringify(this.history));
+            localStorage.setItem(KEYS.custom, JSON.stringify(this.customExercises));
+            localStorage.setItem(KEYS.settings, JSON.stringify(this.settings));
+        },
+
+        loadData() {
+            const read = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+
+            this.routines = read(KEYS.routines) || read('hevy_replica_routines') || [];
+            this.history  = read(KEYS.history)  || read('hevy_replica_history')  || [];
+            this.customExercises = read(KEYS.custom) || [];
+            const s = read(KEYS.settings);
+            if (s) this.settings = Object.assign(this.settings, s);
+
+            // migrate the old flat string list of exercises
+            const legacy = read('hevy_replica_exerciseDB');
+            if (Array.isArray(legacy)) {
+                legacy.forEach(name => {
+                    if (typeof name === 'string' && !this.libraryHasName(name)) {
+                        this.customExercises.push({ name: name, category: 'Custom', muscle: 'Custom', tracking: 'weighted' });
+                    }
+                });
+            }
+            // any exercise sitting in history but not in the library becomes a custom entry
+            this.history.forEach(w => (w.exercises || []).forEach(ex => {
+                if (ex.exerciseName && !this.libraryHasName(ex.exerciseName)) {
+                    this.customExercises.push({ name: ex.exerciseName, category: 'Custom', muscle: 'Custom', tracking: this.guessTracking(ex) });
+                }
+            }));
+            this.saveData();
+        },
+
+        /* ---------- library helpers ---------- */
+        libraryHasName(name) { return !!this.libraryMap[String(name).trim().toLowerCase()]; },
+
+        getExercise(name) { return this.libraryMap[String(name).trim().toLowerCase()]; },
+
+        getTracking(name) {
+            const e = this.getExercise(name);
+            return e ? e.tracking : 'weighted';
+        },
+
+        fieldsFor(name) { return FIELDS[this.getTracking(name)] || FIELDS.weighted; },
+
+        guessTracking(ex) {
+            const sets = ex.sets || [];
+            if (sets.some(s => s.distance)) return 'cardio';
+            if (sets.some(s => s.seconds) && !sets.some(s => s.reps)) return 'duration';
+            if (sets.every(s => !s.weight)) return 'reps';
+            return 'weighted';
+        },
+
+        filterLibrary(search, category, muscle) {
+            const q = (search || '').trim().toLowerCase();
+            return this.library.filter(e => {
+                if (category !== 'All' && e.category !== category) return false;
+                if (muscle !== 'All' && e.muscle !== muscle) return false;
+                if (q && !e.name.toLowerCase().includes(q)) return false;
+                return true;
+            }).sort((a, b) => a.name.localeCompare(b.name));
+        },
+
+        /* ---------- formatting ---------- */
+        num(v) {
+            const n = parseFloat(v);
+            if (isNaN(n)) return 0;
+            return Math.round(n * 100) / 100;
+        },
+
+        formatSet(set, tracking) {
+            if (tracking === 'cardio') {
+                const parts = [];
+                if (set.distance) parts.push(`${this.num(set.distance)} km`);
+                if (set.minutes) parts.push(`${this.num(set.minutes)} min`);
+                return parts.join(' · ') || '—';
+            }
+            if (tracking === 'duration') return set.seconds ? `${this.num(set.seconds)}s` : '—';
+            if (tracking === 'reps') return set.reps ? `${set.reps} reps` : '—';
+            const w = this.num(set.weight);
+            const r = parseInt(set.reps) || 0;
+            if (!w && !r) return '—';
+            return `${w} kg × ${r}`;
+        },
+
+        formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString(undefined, {
+                weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        },
+
+        /* ---------- history lookups ---------- */
+        lastSession(name) {
+            const list = this.historyIndex[name];
+            return list && list.length ? list[0] : null;
+        },
+
+        lastSummary(name) {
+            const s = this.lastSession(name);
+            if (!s) return 'No history';
+            const t = this.getTracking(name);
+            const top = this.topSet(s.sets, t);
+            return `${s.sets.length} × ${this.formatSet(top, t)}`;
+        },
+
+        sessionCount(name) {
+            const n = (this.historyIndex[name] || []).length;
+            return n ? `${n} session${n > 1 ? 's' : ''}` : '';
+        },
+
+        topSet(sets, tracking) {
+            if (tracking !== 'weighted') {
+                return sets.reduce((a, s) => ((parseFloat(s.reps) || parseFloat(s.seconds) || 0) > (parseFloat(a.reps) || parseFloat(a.seconds) || 0) ? s : a), sets[0]);
+            }
+            return sets.reduce((a, s) => (this.e1rm(s) > this.e1rm(a) ? s : a), sets[0]);
+        },
+
+        e1rm(set) {
+            const w = parseFloat(set.weight) || 0;
+            const r = parseInt(set.reps) || 0;
+            if (!w || !r) return 0;
+            return w * (1 + r / 30);
+        },
+
+        bestE1RM(name) {
+            const sessions = this.historyIndex[name] || [];
+            let best = 0;
+            sessions.forEach(s => s.sets.forEach(set => { best = Math.max(best, this.e1rm(set)); }));
+            return best ? `${Math.round(best * 10) / 10} kg` : '—';
+        },
+
+        heaviestSet(name) {
+            const sessions = this.historyIndex[name] || [];
+            let best = null;
+            sessions.forEach(s => s.sets.forEach(set => {
+                if (!best || (parseFloat(set.weight) || 0) > (parseFloat(best.weight) || 0)) best = set;
+            }));
+            return best ? this.formatSet(best, this.getTracking(name)) : '—';
+        },
+
+        workoutVolume(w) {
+            let vol = 0;
+            (w.exercises || []).forEach(ex => ex.sets.forEach(s => {
+                if (s.weight && s.reps) vol += parseFloat(s.weight) * parseInt(s.reps);
+            }));
+            return Math.round(vol);
+        },
+
+        /* ---------- progressive overload ---------- */
+        suggestionFor(name) {
+            const last = this.lastSession(name);
+            if (!last) return null;
+            const t = this.getTracking(name);
+            const top = this.topSet(last.sets, t);
+
+            if (t === 'weighted') {
+                const w = parseFloat(top.weight) || 0;
+                const r = parseInt(top.reps) || 0;
+                if (!w && !r) return null;
+                if (r >= this.settings.repCeiling) {
+                    return { weight: Math.round((w + (this.settings.increment || 2.5)) * 100) / 100, reps: this.settings.repFloor };
+                }
+                return { weight: w, reps: r + 1 };
+            }
+            if (t === 'reps') {
+                const r = parseInt(top.reps) || 0;
+                return r ? { reps: r + 1 } : null;
+            }
+            if (t === 'duration') {
+                const s = parseFloat(top.seconds) || 0;
+                return s ? { seconds: Math.round(s + 5) } : null;
+            }
+            const d = parseFloat(top.distance) || 0;
+            const m = parseFloat(top.minutes) || 0;
+            if (!d && !m) return null;
+            return { distance: d ? Math.round((d + 0.25) * 100) / 100 : '', minutes: m };
+        },
+
+        suggestionText(name) {
+            const s = this.suggestionFor(name);
+            if (!s) return '';
+            return this.formatSet(s, this.getTracking(name));
+        },
+
+        applySuggestion(ex) {
+            const s = this.suggestionFor(ex.exerciseName);
+            if (!s) return;
+            ex.sets.forEach(set => {
+                if (set.completed) return;
+                Object.keys(s).forEach(k => { set[k] = s[k]; });
+            });
+        },
+
+        /* ---------- routines ---------- */
+        getRoutineExercisesText(routine) {
+            if (!routine.exercises || !routine.exercises.length) return 'No exercises added yet.';
+            return routine.exercises.map(e => e.exerciseName).join(', ');
+        },
+
+        createNewRoutine() {
+            this.editingRoutine = { name: 'New routine', exercises: [] };
+            this.editingRoutineIndex = -1;
+        },
+
+        editRoutine(index) {
+            this.editingRoutine = JSON.parse(JSON.stringify(this.routines[index]));
+            this.editingRoutineIndex = index;
+        },
+
+        moveExercise(index, dir) {
+            const list = this.editingRoutine.exercises;
+            const target = index + dir;
+            if (target < 0 || target >= list.length) return;
+            const [item] = list.splice(index, 1);
+            list.splice(target, 0, item);
+        },
+
+        saveRoutine() {
+            if (this.editingRoutineIndex >= 0) this.routines[this.editingRoutineIndex] = this.editingRoutine;
+            else this.routines.push(this.editingRoutine);
+            this.editingRoutine = null;
+            this.saveData();
+        },
+
+        cancelEditRoutine() { this.editingRoutine = null; },
+
+        deleteRoutine(index) {
+            if (confirm('Delete this routine?')) { this.routines.splice(index, 1); this.saveData(); }
+        },
+
+        /* ---------- workout ---------- */
+        blankSet() { return { weight: '', reps: '', seconds: '', distance: '', minutes: '', completed: false }; },
+
+        /* Fills the previous column and the input placeholders from the last logged session. */
+        attachPrevious(ex) {
+            const last = this.lastSession(ex.exerciseName);
+            const t = this.getTracking(ex.exerciseName);
+            ex.sets.forEach((set, i) => {
+                const prev = last && last.sets[i] ? last.sets[i] : null;
+                set.previous = prev ? this.formatSet(prev, t) : (last ? '—' : 'No history');
+                (FIELDS[t] || FIELDS.weighted).forEach(f => {
+                    set['prev_' + f.key] = prev && prev[f.key] !== undefined && prev[f.key] !== '' ? String(this.num(prev[f.key])) : '';
+                });
+            });
+            return ex;
+        },
+
+        startWorkout(routine) {
+            const exercises = routine
+                ? JSON.parse(JSON.stringify(routine.exercises)).map(ex => {
+                      ex.sets = (ex.sets && ex.sets.length ? ex.sets : [{}]).map(() => this.blankSet());
+                      ex.restSeconds = ex.restSeconds || 0;
+                      return this.attachPrevious(ex);
+                  })
+                : [];
+
+            this.activeWorkout = {
+                id: 'w_' + Date.now(),
+                name: routine ? routine.name : 'Empty workout',
+                startTime: new Date().toISOString(),
+                exercises: exercises
+            };
+            this.activeWorkoutSeconds = 0;
+            clearInterval(this.workoutTimer);
+            this.workoutTimer = setInterval(() => this.activeWorkoutSeconds++, 1000);
+        },
+
+        cancelWorkout() {
+            if (confirm("Cancel workout? Nothing is saved.")) {
+                clearInterval(this.workoutTimer);
+                this.stopRest();
+                this.activeWorkout = null;
+            }
+        },
+
+        finishWorkout() {
+            clearInterval(this.workoutTimer);
+            this.stopRest();
+            const w = this.activeWorkout;
+            w.endTime = new Date().toISOString();
+            w.durationSeconds = this.activeWorkoutSeconds;
+
+            w.exercises.forEach(ex => {
+                ex.sets = ex.sets.filter(s => s.completed).map(s => {
+                    const clean = { completed: true };
+                    ['weight', 'reps', 'seconds', 'distance', 'minutes'].forEach(k => {
+                        if (s[k] !== '' && s[k] !== undefined && s[k] !== null) clean[k] = this.num(s[k]);
+                    });
+                    return clean;
+                });
+            });
+            w.exercises = w.exercises.filter(ex => ex.sets.length > 0);
+
+            if (w.exercises.length) {
+                this.history.push(w);
+                this.saveData();
+                this.currentTab = 'history';
+            }
+            this.activeWorkout = null;
+        },
+
+        toggleSetComplete(ex, set) {
+            set.completed = !set.completed;
+            if (set.completed) {
+                // an empty field on completion falls back to what you did last time
+                this.fieldsFor(ex.exerciseName).forEach(f => {
+                    if ((set[f.key] === '' || set[f.key] === null || set[f.key] === undefined) && set['prev_' + f.key]) {
+                        set[f.key] = set['prev_' + f.key];
+                    }
+                });
+                if (ex.restSeconds) this.startRest(ex.restSeconds);
+            }
+        },
+
+        addSet(ex) {
+            const t = this.getTracking(ex.exerciseName);
+            const last = ex.sets[ex.sets.length - 1];
+            const set = this.blankSet();
+            if (last) (FIELDS[t] || FIELDS.weighted).forEach(f => { set[f.key] = last[f.key]; });
+
+            const lastSession = this.lastSession(ex.exerciseName);
+            const idx = ex.sets.length;
+            const prev = lastSession && lastSession.sets[idx] ? lastSession.sets[idx] : null;
+            set.previous = prev ? this.formatSet(prev, t) : '—';
+            (FIELDS[t] || FIELDS.weighted).forEach(f => {
+                set['prev_' + f.key] = prev && prev[f.key] !== undefined ? String(this.num(prev[f.key])) : '';
+            });
+            ex.sets.push(set);
+        },
+
+        removeExercise(index) { this.activeWorkout.exercises.splice(index, 1); },
+
+        cycleRest(ex) {
+            const steps = [0, 60, 90, 120, 180, 240];
+            const i = steps.indexOf(ex.restSeconds || 0);
+            ex.restSeconds = steps[(i + 1) % steps.length];
+        },
+
+        startRest(seconds) {
+            this.stopRest();
+            this.restRemaining = seconds;
+            this.restTimer = setInterval(() => {
+                this.restRemaining--;
+                if (this.restRemaining <= 0) this.stopRest();
+            }, 1000);
+        },
+
+        stopRest() { clearInterval(this.restTimer); this.restRemaining = 0; },
+
+        /* ---------- exercise picker ---------- */
+        openLibrary(target) {
+            this.libraryTarget = target;
+            this.exerciseSearch = '';
+            this.pickerCategory = 'All';
+            if (target === 'browse') { this.showLibrary = true; return; }
+            this.showLibrary = true;
+        },
+
+        selectExercise(name) {
+            this.showLibrary = false;
+            if (this.libraryTarget === 'browse') { this.openExerciseHistory(name); return; }
+
+            const ex = this.attachPrevious({ exerciseName: name, sets: [this.blankSet()], restSeconds: 0 });
+            if (this.libraryTarget === 'active' && this.activeWorkout) this.activeWorkout.exercises.push(ex);
+            else if (this.libraryTarget === 'routine' && this.editingRoutine) this.editingRoutine.exercises.push({ exerciseName: name, sets: [{}] });
+        },
+
+        addCustomExercise() {
+            const name = this.exerciseSearch.trim();
+            if (!name) return;
+            if (!this.libraryHasName(name)) {
+                const cat = this.pickerCategory === 'All' ? 'Custom' : this.pickerCategory;
+                const tracking = cat === 'Cardio' ? 'cardio' : (cat === 'Stretching' ? 'duration' : (cat === 'Bodyweight' ? 'reps' : 'weighted'));
+                this.customExercises.push({ name: name, category: 'Custom', muscle: 'Custom', tracking: tracking });
+                this.saveData();
+            }
+            this.selectExercise(name);
+        },
+
+        openExerciseHistory(name) { this.historyExercise = name; },
+
+        deleteWorkout(id) {
+            if (!confirm('Delete this session?')) return;
+            this.history = this.history.filter(w => w.id !== id);
+            this.saveData();
+        },
+
+        /* ---------- Hevy CSV import ---------- */
+        parseHevyDate(value) {
+            if (!value) return null;
+            const s = String(value).replace(/"/g, '').trim();
+            let d = new Date(s);
+            if (!isNaN(d.getTime())) return d;
+            const m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4}),?\s*(\d{1,2}):(\d{2})/);
+            if (m) {
+                const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+                const mo = months[m[2].slice(0, 3).toLowerCase()];
+                if (mo !== undefined) return new Date(+m[3], mo, +m[1], +m[4], +m[5]);
+            }
+            return null;
+        },
+
+        weightFromRow(row) {
+            if (row.weight_kg !== undefined && row.weight_kg !== '') return this.num(row.weight_kg);
+            if (row.weight_lbs !== undefined && row.weight_lbs !== '') return Math.round(parseFloat(row.weight_lbs) * 0.45359237 * 10) / 10;
+            if (row.weight !== undefined && row.weight !== '') return this.num(row.weight);
+            return '';
+        },
+
+        handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            this.importStatus = 'Reading CSV...';
+            this.importError = false;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                transformHeader: h => h.trim().toLowerCase(),
+                complete: (results) => {
+                    try {
+                        const data = results.data;
+                        if (!data.length || !Object.prototype.hasOwnProperty.call(data[0], 'exercise_title')) {
+                            throw new Error("That file doesn't look like Hevy's workout_data.csv — it needs an exercise_title column.");
+                        }
+
+                        const groups = {};
+                        data.forEach(row => {
+                            const date = this.parseHevyDate(row.start_time);
+                            if (!date) return;
+                            const key = (row.title || 'Workout') + '_' + date.getTime();
+
+                            if (!groups[key]) {
+                                groups[key] = {
+                                    id: key,
+                                    name: row.title || 'Imported workout',
+                                    startTime: date.toISOString(),
+                                    endTime: (this.parseHevyDate(row.end_time) || date).toISOString(),
+                                    exercisesMap: {}
+                                };
+                            }
+
+                            const exName = (row.exercise_title || 'Unknown exercise').trim();
+                            if (!groups[key].exercisesMap[exName]) groups[key].exercisesMap[exName] = { exerciseName: exName, sets: [] };
+
+                            const set = { completed: true, type: (row.set_type || 'normal').toLowerCase() };
+                            const w = this.weightFromRow(row);
+                            if (w !== '') set.weight = w;
+                            if (row.reps !== undefined && row.reps !== '') set.reps = parseInt(row.reps) || 0;
+                            if (row.distance_km !== undefined && row.distance_km !== '') set.distance = this.num(row.distance_km);
+                            if (row.duration_seconds !== undefined && row.duration_seconds !== '') set.seconds = this.num(row.duration_seconds);
+                            if (row.rpe !== undefined && row.rpe !== '') set.rpe = this.num(row.rpe);
+                            set._i = row.set_index !== undefined && row.set_index !== '' ? parseInt(row.set_index) : groups[key].exercisesMap[exName].sets.length;
+
+                            groups[key].exercisesMap[exName].sets.push(set);
+                        });
+
+                        const imported = Object.values(groups).map(w => ({
+                            id: w.id, name: w.name, startTime: w.startTime, endTime: w.endTime,
+                            exercises: Object.values(w.exercisesMap).map(ex => {
+                                ex.sets.sort((a, b) => a._i - b._i);
+                                ex.sets.forEach(s => delete s._i);
+                                return ex;
+                            })
+                        }));
+
+                        const existing = new Set(this.history.map(h => h.id));
+                        let added = 0, newExercises = 0;
+
+                        imported.forEach(w => {
+                            if (existing.has(w.id)) return;
+                            this.history.push(w);
+                            added++;
+                            w.exercises.forEach(ex => {
+                                if (!this.libraryHasName(ex.exerciseName)) {
+                                    this.customExercises.push({
+                                        name: ex.exerciseName, category: 'Custom', muscle: 'Custom', tracking: this.guessTracking(ex)
+                                    });
+                                    newExercises++;
+                                }
+                            });
+                        });
+
+                        this.saveData();
+                        this.importStatus = `Imported ${added} sessions and ${newExercises} new exercises. Your previous weights and reps now show up while you log.`;
+                    } catch (err) {
+                        this.importError = true;
+                        this.importStatus = err.message;
+                    }
+                    event.target.value = '';
+                }
+            });
+        },
+
+        /* ---------- backup ---------- */
+        exportBackup() {
+            const blob = new Blob([JSON.stringify({
+                routines: this.routines, history: this.history,
+                customExercises: this.customExercises, settings: this.settings
+            }, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `heavylifter-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        },
+
+        restoreBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const d = JSON.parse(e.target.result);
+                    if (d.routines) this.routines = d.routines;
+                    if (d.history) this.history = d.history;
+                    if (d.customExercises) this.customExercises = d.customExercises;
+                    if (d.settings) this.settings = Object.assign(this.settings, d.settings);
+                    this.saveData();
+                    this.importStatus = 'Backup restored.';
+                    this.importError = false;
+                } catch (err) {
+                    this.importError = true;
+                    this.importStatus = 'That backup file could not be read.';
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        },
+
+        clearAllData() {
+            if (!confirm('Delete every routine, session and custom exercise on this device? This cannot be undone.')) return;
+            Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+            ['hevy_replica_routines', 'hevy_replica_history', 'hevy_replica_exerciseDB'].forEach(k => localStorage.removeItem(k));
+            this.routines = [];
+            this.history = [];
+            this.customExercises = [];
+            this.importStatus = 'All local data cleared.';
+            this.importError = false;
+        }
+    }
+}).mount('#app');
 </script>
 </body>
 </html>
-
